@@ -64,7 +64,6 @@ class SearchProblem:
     """
     This class outlines the structure of a search problem, but doesn't implement
     any of the methods (in object-oriented terminology: an abstract class).
-
     You do not need to change anything in this class, ever.
     """
 
@@ -77,7 +76,6 @@ class SearchProblem:
     def isGoalState(self, state):
         """
           state: Search state
-
         Returns True if and only if the state is a valid goal state.
         """
         util.raiseNotDefined()
@@ -85,7 +83,6 @@ class SearchProblem:
     def getSuccessors(self, state):
         """
           state: Search state
-
         For a given state, this should return a list of triples, (successor,
         action, stepCost), where 'successor' is a successor to the current
         state, 'action' is the action required to get there, and 'stepCost' is
@@ -96,7 +93,6 @@ class SearchProblem:
     def getCostOfActions(self, actions):
         """
          actions: A list of actions to take
-
         This method returns the total cost of a particular sequence of actions.
         The sequence must be composed of legal moves.
         """
@@ -262,42 +258,68 @@ def breadthFirstSearch(problem):
 def uniformCostSearch(problem):
     return graph_search_wrapper(problem, "ucs")
 
+def corner_astar(problem, heuristic):
+    root = [problem.getStartState(), None, 0, 0]            # c0c1c2c3 ranges from 0 to 15 (0000 = 0, 0100 = 2, etc.)
+    visit_count = problem.CornerCheck(root)
+    root[-1] = visit_count
+    fringe = util.PriorityQueue()
+    fringe.push([tuple(root)], 0)                           # Queue of sequences of (state, action, cost, visitation count) tuples (nodes)
+    closed_set = set()                                      # Set of (state, visitation count) pairs
+    while True:
+        if fringe.isEmpty():
+            return None
+        sequence = fringe.pop()
+        if problem.isGoalState(sequence):
+            return wrapper(sequence)
+        node = sequence[-1]                                 # Get the last node in the path/sequence
+        svp = (node[0], node[-1])                           # (state, visitations) pair svp
+        closed_set.add(svp)
+        successors = problem.getSuccessors(svp)             # All possible next nodes (state, action, cost, visitation) pairs
+        for child in successors:   
+            child_svp = (child[0], child[-1])               # Only need (state, visitations)            
+            if child_svp not in closed_set: #and not fringe.find(child):    # State has not been previously visited
+                temp = sequence + [update_corner_cost(child, node, "astar")]
+                f_n = temp[-1][2] + heuristic(child_svp, problem)
+                fringe.push(temp, f_n) 
 
 def aStarSearch(problem, heuristic=nullHeuristic):
     """Search the node that has the lowest combined cost and heuristic first."""
     "*** YOUR CODE HERE ***"
-    #Define Fringe
-    Fringe = util.PriorityQueue()
-    #Place Holder for State Inspected already
-    done_state = []
-    #Path that's returned in the end
-    path = []
-    #Complete Path to the Current State from S
-    com_path = util.PriorityQueue()
-    #Push the Start State to the Priority Queue
-    Fringe.push(problem.getStartState(),0)
-    #Define the current state
-    current_state = Fringe.pop()
-    
-    #Check if we have reached the goal state, if not iterate
-    while not problem.isGoalState(current_state):
-        #If the current state has not been expanded before, add to done list
-        if current_state not in done_state:
-            done_state.append(current_state)
-            #Get the successors of the current node
-            successor_nodes = problem.getSuccessors(current_state)
-            
-            #Check the childern
-            for child,direction,cost in successor_nodes:
-                if child not in done_state:
-                    Fringe.push(child,problem.getCostOfActions(path+ [direction]) + heuristic(child,problem))
-                    com_path.push(path+ [direction],problem.getCostOfActions(path+ [direction]) + heuristic(child,problem))
-                
-        #Backup to the previous node        
+    if type(problem).__name__ == 'CornersProblem':
+        return corner_astar(problem, heuristic)
+    else:
+        #Define Fringe
+        Fringe = util.PriorityQueue()
+        #Place Holder for State Inspected already
+        done_state = []
+        #Path that's returned in the end
+        path = []
+        #Complete Path to the Current State from S
+        com_path = util.PriorityQueue()
+        #Push the Start State to the Priority Queue
+        Fringe.push(problem.getStartState(),0)
+        #Define the current state
         current_state = Fringe.pop()
-        #Uh oh! Wrong direction, so remove it
-        path = com_path.pop()
-    return path
+        
+        #Check if we have reached the goal state, if not iterate
+        while not problem.isGoalState(current_state):
+            #If the current state has not been expanded before, add to done list
+            if current_state not in done_state:
+                done_state.append(current_state)
+                #Get the successors of the current node
+                successor_nodes = problem.getSuccessors(current_state)
+                
+                #Check the childern
+                for child,direction,cost in successor_nodes:
+                    if child not in done_state:
+                        Fringe.push(child,problem.getCostOfActions(path+ [direction]) + heuristic(child,problem))
+                        com_path.push(path+ [direction],problem.getCostOfActions(path+ [direction]) + heuristic(child,problem))
+                    
+            #Backup to the previous node        
+            current_state = Fringe.pop()
+            #Uh oh! Wrong direction, so remove it
+            path = com_path.pop()
+        return path
 
 
 # Abbreviations
