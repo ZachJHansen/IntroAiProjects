@@ -233,7 +233,50 @@ class MinimaxAgent(MultiAgentSearchAgent):
         Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        num_agents = gameState.getNumAgents()
+        max_depth = (self.depth * num_agents) - 1           # Ply * agents per ply (0 indexed)
+        current_depth = 0
+        best_action, best_score = None, float('-inf')
+        for action in gameState.getLegalActions(self.index):
+            score = self.value(gameState.generateSuccessor(self.index, action), num_agents, current_depth+1, max_depth)
+            if score > best_score:
+                best_action, best_score = action, score
+        return best_action
+
+    def max_value(self, state, num_agents, current_depth, max_depth):
+        val = float('-inf')
+        agentIndex = current_depth % num_agents
+        actions = state.getLegalActions(agentIndex)
+        for a in actions:
+            successor = state.generateSuccessor(agentIndex, a)
+            val = max(val, self.value(successor, num_agents, current_depth+1, max_depth))
+        return val
+
+    def min_value(self, state, num_agents, current_depth, max_depth):
+        val = float('inf')
+        agentIndex = current_depth % num_agents
+        actions = state.getLegalActions(agentIndex)
+        for a in actions:
+            successor = state.generateSuccessor(agentIndex, a)
+            val = min(val, self.value(successor, num_agents, current_depth+1, max_depth))
+        return val
+
+    # Returns true if the state is terminal (win or loss) or a leaf node at depth D
+    def terminal(self, state, current_depth, max_depth):
+        if current_depth > max_depth or (state.isWin() or state.isLose()):
+            return True
+        else:
+            return False
+
+    # Input: Game State, number of agents, current tree depth (0 indexed), max tree depth (NOT the ply, which is supplied via command line)
+    # Output: Recursively calculated minimax value for the provided state
+    def value(self, state, num_agents, current_depth, max_depth):
+        if self.terminal(state, current_depth, max_depth):
+            return self.evaluationFunction(state)
+        if current_depth % num_agents == 0:                                 # Is the next agent min or max?
+            return self.max_value(state, num_agents, current_depth, max_depth)  # Max agent returns max of its childrens' values
+        else:
+            return self.min_value(state, num_agents, current_depth, max_depth)  # Min agent returns min of its childrens' values
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
