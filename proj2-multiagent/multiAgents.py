@@ -12,8 +12,9 @@
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
 
-from util import manhattanDistance
+from util import manhattanDistance as DrManhattan
 from game import Directions
+from math import tanh
 import random, util
 
 from game import Agent
@@ -27,6 +28,54 @@ class ReflexAgent(Agent):
     it in any way you see fit, so long as you don't touch our method
     headers.
     """
+
+    # Returns the cumulative distance between pacman and remaining food
+    # Randomness introduced to remove thrashing
+    def total_food_dist(self, pacman, food_grid):
+        total = 0
+        master = []
+        c = 1
+        for col in food_grid:
+            indices = [(indx, c) for indx in range(len(col)-1, 1, -1) if col[indx] == True]
+            master = master + indices
+            c += 1
+        for pellet in master:
+            total += DrManhattan(pacman, pellet) #+ random.randrange(1,3)
+        if total == 0:
+            return 1
+        else:
+            return 1/total
+
+    # Returns distance to nearest food (is this working right?)
+    def nearest_food(self, pacman, food_grid, food_count):
+        master = []
+        c = 1
+        for col in food_grid:
+            indices = [(indx, c) for indx in range(len(col)-1, 1, -1) if col[indx] == True]
+            master = master + indices
+            c += 1
+        nearest = None
+        nearest = (float('inf'), float('inf'))
+        dist = float('inf')
+        for food in master:
+            candidate = DrManhattan(pacman, food)
+            if candidate < dist:
+                nearest = food
+                dist = candidate
+        #print(master)
+        #print("Pacman", pacman, "nearest", nearest, "dist", dist)
+        del master
+        if dist == 0:
+            return 1
+        else:
+            return 1/dist
+
+    def ghost_eval(self, pacman, ghost, scared_time=0):
+        tan = tanh(DrManhattan(pacman, ghost.getPosition()) - 1.75)
+        if scared_time - 3 > DrManhattan(pacman, ghost.getPosition()):  # Bust the ghost!
+            return 1/tan
+        else:
+            return tan              # Fly, you fools!
 
 
     def getAction(self, gameState):
@@ -51,6 +100,8 @@ class ReflexAgent(Agent):
 
         return legalMoves[chosenIndex]
 
+    # An evaluation function is a weighted linear function of features used to estimate utility of a state
+    # Possible Pacman features: ghost proximity, food proximity, food count
     def evaluationFunction(self, currentGameState, action):
         """
         Design a better evaluation function here.
@@ -72,9 +123,56 @@ class ReflexAgent(Agent):
         newFood = successorGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
+        #print(successorGameState)
+        #print(newPos)
+        #print(newFood)
+        #for g in newGhostStates:
+        #    print(str(g))
 
-        "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        fc = successorGameState.getNumFood()
+        if fc != 0:
+            fc = 1/fc
+            #nf = self.nearest_food(newPos, newFood, fc)
+        else:
+            fc = 1
+            #fc, nf = 0, 0
+        if currentGameState.getPacmanPosition() == newPos:
+            p = 1
+        else:
+            p = 0
+        #print("nf", nf, "fc", fc)
+        g1 = newGhostStates[0]
+        weights = {"ghost_prox1" : 0.8, 
+                    #"ghost_prox2": 0.3, 
+                    "food_total": 0.9, 
+                    "food_prox": 0.2,
+                    "food_count": 0.9, 
+                    "paralysis": -1, 
+                    "score": 0.1,
+                    "win": 10,
+                    "lose": -10}
+        features = {
+            "ghost_prox1" : self.ghost_eval(newPos, g1, newScaredTimes[0]), 
+            #"ghost_prox2" : tanh(DrManhattan(newPos, g2.getPosition()) - 1.75),
+            "food_total": self.total_food_dist(newPos, newFood),
+            #"food_prox": self.nearest_food(newPos, newFood, fc), 
+            "food_count": fc,
+            "paralysis": p,
+            "score": successorGameState.getScore(),
+            "win": successorGameState.isWin(),
+            "lose": successorGameState.isLose()
+        }
+        
+        if (len(newGhostStates)) > 1:
+            g2 = newGhostStates[1]
+            features["ghost_prox2"] = self.ghost_eval(newPos, g2, newScaredTimes[1])
+            weights["ghost_prox2"] = 0.8
+        #weights = {"food_prox": 1}
+        #features = {"food_prox": nf}
+        ws = lambda key : weights[key] * features[key]
+        expected_value = sum([ws(key) for key in features])
+        #print(nf, " | ", expected_value)
+        return expected_value
 
 def scoreEvaluationFunction(currentGameState):
     """
