@@ -162,10 +162,10 @@ class ReflexAgent(Agent):
 
         return finalEvalutaion
 
-def evaluateGhostvsPacPositions(self,ghost,pacman):
-    distanceBetweenPacManAndGhost = DrManhattan(pacman, ghost)
-    # print("This is the distance between pacman and ghost: ", distanceBetweenPacManAndGhost)
-    return distanceBetweenPacManAndGhost
+    def evaluateGhostvsPacPositions(self,ghost,pacman):
+        distanceBetweenPacManAndGhost = DrManhattan(pacman, ghost)
+        # print("This is the distance between pacman and ghost: ", distanceBetweenPacManAndGhost)
+        return distanceBetweenPacManAndGhost
 
 
 def scoreEvaluationFunction(currentGameState):
