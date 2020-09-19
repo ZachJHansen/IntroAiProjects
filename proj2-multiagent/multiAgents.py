@@ -134,62 +134,39 @@ class ReflexAgent(Agent):
         newFood = successorGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
-        #print(successorGameState)
-        #print(newPos)
-        
-        #print(newFood)
-        #for g in newGhostStates:
-        #    print(str(g))
 
-        fc = successorGameState.getNumFood()
-        if fc != 0:
-            fc = 1/fc
-            #nf = self.nearest_food(newPos, newFood, fc)
-        else:
-            fc = 1
-            #fc, nf = 0, 0
-        if currentGameState.getPacmanPosition() == newPos:
-            p = 1
-        else:
-            p = 0
-            #currentGameState.
-        #print("nf", nf, "fc", fc)
-        g1 = newGhostStates[0]
-        weights = {
-            "ghost_prox1" : 0.5,  #0.5
-            #"ghost_prox2": 0.3, 
-            "food_total": 0.5, #0.5
-            #"food_prox": 0.1, # 0.2
-            #"food_count": 0.8,  #0.9
-            "paralysis": -0.5,  #-0.5
-            "reverse": 0.1, #0.1
-            "score": 0.1   #0.1
-            #"win": 1,      #10
-            #"lose": -1}    #-10
-        }
-        features = {
-            "ghost_prox1" : self.ghost_eval(newPos, g1, newScaredTimes[0]), 
-            #"ghost_prox2" : tanh(DrManhattan(newPos, g2.getPosition()) - 1.75),
-            "food_total": self.total_food_dist(newPos, newFood),
-            #"food_prox": self.nearest_food(newPos, newFood, fc), 
-           # "food_count": fc,
-            "paralysis": p,
-            "reverse":  self.thrash_check(history, action),
-            "score": successorGameState.getScore()
-            #"win": successorGameState.isWin(),
-            #"lose": successorGameState.isLose()
-        }
-        
-        if (len(newGhostStates)) > 1:
-            g2 = newGhostStates[1]
-            features["ghost_prox2"] = self.ghost_eval(newPos, g2, newScaredTimes[1])
-            weights["ghost_prox2"] = 0.1 #0.8
-        #weights = {"food_prox": 1}
-        #features = {"food_prox": nf}
-        ws = lambda key : weights[key] * features[key]
-        expected_value = sum([ws(key) for key in features])
-        #print(nf, " | ", expected_value)
-        return expected_value
+
+        "*** YOUR CODE HERE ***"
+        distanceOfFoods = []  # create a list holding each manHattanDistance from currentPos to foods position
+        value = 0
+
+        for food in newFood.asList():  # given a list of new Food positions add their collection of distances
+            distanceOfFoods.append(DrManhattan(newPos, food))  # add to list of distances of each food item
+
+        for distance in distanceOfFoods:  # for each
+            if distance >= 15:  # if the food is far away not as highly valued
+                value += .20
+            elif distance < 15 and distance > 4:  # if its generally medium distance its a bit better to take
+                value += .50
+            else:
+                value += 1  # if its really close, its valued as the best possible food to eat
+        ghostPositions = successorGameState.getGhostPositions()
+
+        for ghost in ghostPositions:  # for each ghost in ghostPositions find pacmans current distance away from them
+            currentDistance = self.evaluateGhostvsPacPositions(ghost, newPos)
+            if currentDistance == 0:  # if ghost is ontop of pacman huge failure/lost
+                value -= 3
+            elif currentDistance < 4:  # if ghost is relatively close deduct the value
+                value -= 2
+        finalEvalutaion = value + successorGameState.getScore()  # get the finalEvaluationValue
+
+        return finalEvalutaion
+
+def evaluateGhostvsPacPositions(self,ghost,pacman):
+    distanceBetweenPacManAndGhost = DrManhattan(pacman, ghost)
+    # print("This is the distance between pacman and ghost: ", distanceBetweenPacManAndGhost)
+    return distanceBetweenPacManAndGhost
+
 
 def scoreEvaluationFunction(currentGameState):
     """
