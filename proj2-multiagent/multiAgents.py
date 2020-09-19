@@ -13,7 +13,7 @@
 
 
 from util import manhattanDistance as DrManhattan
-from game import Directions
+from game import Directions, Actions
 from math import tanh
 import random, util
 
@@ -77,6 +77,16 @@ class ReflexAgent(Agent):
         else:
             return tan              # Fly, you fools!
 
+    # We hates thrashing
+    def thrash_check(self, past_action, proposed_action):
+        if past_action == Directions.STOP:                  # You should move
+            return 1   
+        else:
+            reverse = Actions.reverseDirection(proposed_action)
+            if (reverse == past_action):                            # You should not take proposed action
+                return -1
+            else:                               # Take the proposed action
+                return 1
 
     def getAction(self, gameState):
         """
@@ -118,13 +128,15 @@ class ReflexAgent(Agent):
         to create a masterful evaluation function.
         """
         # Useful information you can extract from a GameState (pacman.py)
-        successorGameState = currentGameState.generatePacmanSuccessor(action)
+        history = currentGameState.getPacmanState().getDirection()
+        successorGameState = currentGameState.generatePacmanSuccessor(action)        
         newPos = successorGameState.getPacmanPosition()
         newFood = successorGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
         #print(successorGameState)
         #print(newPos)
+        
         #print(newFood)
         #for g in newGhostStates:
         #    print(str(g))
@@ -140,33 +152,38 @@ class ReflexAgent(Agent):
             p = 1
         else:
             p = 0
+            #currentGameState.
         #print("nf", nf, "fc", fc)
         g1 = newGhostStates[0]
-        weights = {"ghost_prox1" : 0.8, 
-                    #"ghost_prox2": 0.3, 
-                    "food_total": 0.9, 
-                    "food_prox": 0.2,
-                    "food_count": 0.9, 
-                    "paralysis": -1, 
-                    "score": 0.1,
-                    "win": 10,
-                    "lose": -10}
+        weights = {
+            "ghost_prox1" : 0.5,  #0.5
+            #"ghost_prox2": 0.3, 
+            "food_total": 0.5, #0.5
+            #"food_prox": 0.1, # 0.2
+            #"food_count": 0.8,  #0.9
+            "paralysis": -0.5,  #-0.5
+            "reverse": 0.1, #0.1
+            "score": 0.1   #0.1
+            #"win": 1,      #10
+            #"lose": -1}    #-10
+        }
         features = {
             "ghost_prox1" : self.ghost_eval(newPos, g1, newScaredTimes[0]), 
             #"ghost_prox2" : tanh(DrManhattan(newPos, g2.getPosition()) - 1.75),
             "food_total": self.total_food_dist(newPos, newFood),
             #"food_prox": self.nearest_food(newPos, newFood, fc), 
-            "food_count": fc,
+           # "food_count": fc,
             "paralysis": p,
-            "score": successorGameState.getScore(),
-            "win": successorGameState.isWin(),
-            "lose": successorGameState.isLose()
+            "reverse":  self.thrash_check(history, action),
+            "score": successorGameState.getScore()
+            #"win": successorGameState.isWin(),
+            #"lose": successorGameState.isLose()
         }
         
         if (len(newGhostStates)) > 1:
             g2 = newGhostStates[1]
             features["ghost_prox2"] = self.ghost_eval(newPos, g2, newScaredTimes[1])
-            weights["ghost_prox2"] = 0.8
+            weights["ghost_prox2"] = 0.1 #0.8
         #weights = {"food_prox": 1}
         #features = {"food_prox": nf}
         ws = lambda key : weights[key] * features[key]
@@ -237,7 +254,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
         max_depth = (self.depth * num_agents) - 1           # Ply * agents per ply (0 indexed)
         current_depth = 0
         best_action, best_score = None, float('-inf')
-        for action in gameState.getLegalActions(self.index):
+        for action in gameState.getLegalActions(0):#self.index):
             score = self.value(gameState.generateSuccessor(self.index, action), num_agents, current_depth+1, max_depth)
             if score > best_score:
                 best_action, best_score = action, score
@@ -288,7 +305,59 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         Returns the minimax action using self.depth and self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        num_agents = gameState.getNumAgents()
+        max_depth = (self.depth * num_agents) - 1           # Ply * agents per ply (0 indexed)
+        current_depth = 0
+        best_action, best_score = None, float('-inf')
+        alpha = float('-inf')
+        beta = float('inf')
+        for action in gameState.getLegalActions(self.index):
+            score = self.value(gameState.generateSuccessor(self.index, action), num_agents, current_depth+1, max_depth, alpha, beta)
+            if score > best_score:
+                best_action, best_score = action, score
+            alpha = max(alpha, score)
+        return best_action
+
+    def max_value(self, state, num_agents, current_depth, max_depth, alpha, beta):
+        val = float('-inf')
+        agentIndex = current_depth % num_agents
+        actions = state.getLegalActions(agentIndex)
+        for a in actions:
+            successor = state.generateSuccessor(agentIndex, a)
+            val = max(val, self.value(successor, num_agents, current_depth+1, max_depth, alpha, beta))
+            if val > beta:        # The current node knows the maximizer above it will never choose a value > beta so it terminates recursion early
+                return val
+            alpha = max(alpha, val)
+        return val
+
+    def min_value(self, state, num_agents, current_depth, max_depth, alpha, beta):
+        val = float('inf')
+        agentIndex = current_depth % num_agents
+        actions = state.getLegalActions(agentIndex)
+        for a in actions:
+            successor = state.generateSuccessor(agentIndex, a)
+            val = min(val, self.value(successor, num_agents, current_depth+1, max_depth, alpha, beta))
+            if val < alpha:        # The current node knows the maximizer above it will never choose a value < alpha so it terminates recursion early
+                return val
+            beta = min(beta, val)
+        return val
+
+    # Returns true if the state is terminal (win or loss) or a leaf node at depth D
+    def terminal(self, state, current_depth, max_depth):
+        if current_depth > max_depth or (state.isWin() or state.isLose()):
+            return True
+        else:
+            return False
+
+    # Input: Game State, number of agents, current tree depth (0 indexed), max tree depth (NOT the ply, which is supplied via command line)
+    # Output: Recursively calculated minimax value for the provided state with alpha-beta pruning
+    def value(self, state, num_agents, current_depth, max_depth, alpha, beta):
+        if self.terminal(state, current_depth, max_depth):
+            return self.evaluationFunction(state)
+        if current_depth % num_agents == 0:                                                  # Is the next agent min or max?
+            return self.max_value(state, num_agents, current_depth, max_depth, alpha, beta)  # Max agent returns max of its childrens' values
+        else:
+            return self.min_value(state, num_agents, current_depth, max_depth, alpha, beta)  # Min agent returns min of its childrens' values
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
