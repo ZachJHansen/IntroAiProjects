@@ -13,9 +13,11 @@
 
 
 from util import manhattanDistance as DrManhattan
-from game import Directions, Actions
+from game import Directions
 from math import tanh
 import random, util
+import statistics
+from searchAgents import mazeDistance
 
 from game import Agent
 
@@ -77,16 +79,6 @@ class ReflexAgent(Agent):
         else:
             return tan              # Fly, you fools!
 
-    # We hates thrashing
-    def thrash_check(self, past_action, proposed_action):
-        if past_action == Directions.STOP:                  # You should move
-            return 1   
-        else:
-            reverse = Actions.reverseDirection(proposed_action)
-            if (reverse == past_action):                            # You should not take proposed action
-                return -1
-            else:                               # Take the proposed action
-                return 1
 
     def getAction(self, gameState):
         """
@@ -128,45 +120,61 @@ class ReflexAgent(Agent):
         to create a masterful evaluation function.
         """
         # Useful information you can extract from a GameState (pacman.py)
-        history = currentGameState.getPacmanState().getDirection()
-        successorGameState = currentGameState.generatePacmanSuccessor(action)        
+        successorGameState = currentGameState.generatePacmanSuccessor(action)
         newPos = successorGameState.getPacmanPosition()
         newFood = successorGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
+        #print(successorGameState)
+        #print(newPos)
+        #print(newFood)
+        #for g in newGhostStates:
+        #    print(str(g))
 
-
-        "*** YOUR CODE HERE ***"
-        distanceOfFoods = []  # create a list holding each manHattanDistance from currentPos to foods position
-        value = 0
-
-        for food in newFood.asList():  # given a list of new Food positions add their collection of distances
-            distanceOfFoods.append(DrManhattan(newPos, food))  # add to list of distances of each food item
-
-        for distance in distanceOfFoods:  # for each
-            if distance >= 15:  # if the food is far away not as highly valued
-                value += .20
-            elif distance < 15 and distance > 4:  # if its generally medium distance its a bit better to take
-                value += .50
-            else:
-                value += 1  # if its really close, its valued as the best possible food to eat
-        ghostPositions = successorGameState.getGhostPositions()
-
-        for ghost in ghostPositions:  # for each ghost in ghostPositions find pacmans current distance away from them
-            currentDistance = self.evaluateGhostvsPacPositions(ghost, newPos)
-            if currentDistance == 0:  # if ghost is ontop of pacman huge failure/lost
-                value -= 3
-            elif currentDistance < 4:  # if ghost is relatively close deduct the value
-                value -= 2
-        finalEvalutaion = value + successorGameState.getScore()  # get the finalEvaluationValue
-
-        return finalEvalutaion
-
-    def evaluateGhostvsPacPositions(self,ghost,pacman):
-        distanceBetweenPacManAndGhost = DrManhattan(pacman, ghost)
-        # print("This is the distance between pacman and ghost: ", distanceBetweenPacManAndGhost)
-        return distanceBetweenPacManAndGhost
-
+        fc = successorGameState.getNumFood()
+        if fc != 0:
+            fc = 1/fc
+            #nf = self.nearest_food(newPos, newFood, fc)
+        else:
+            fc = 1
+            #fc, nf = 0, 0
+        if currentGameState.getPacmanPosition() == newPos:
+            p = 1
+        else:
+            p = 0
+        #print("nf", nf, "fc", fc)
+        g1 = newGhostStates[0]
+        weights = {"ghost_prox1" : 0.8, 
+                    #"ghost_prox2": 0.3, 
+                    "food_total": 0.9, 
+                    "food_prox": 0.2,
+                    "food_count": 0.9, 
+                    "paralysis": -1, 
+                    "score": 0.1,
+                    "win": 10,
+                    "lose": -10}
+        features = {
+            "ghost_prox1" : self.ghost_eval(newPos, g1, newScaredTimes[0]), 
+            #"ghost_prox2" : tanh(DrManhattan(newPos, g2.getPosition()) - 1.75),
+            "food_total": self.total_food_dist(newPos, newFood),
+            #"food_prox": self.nearest_food(newPos, newFood, fc), 
+            "food_count": fc,
+            "paralysis": p,
+            "score": successorGameState.getScore(),
+            "win": successorGameState.isWin(),
+            "lose": successorGameState.isLose()
+        }
+        
+        if (len(newGhostStates)) > 1:
+            g2 = newGhostStates[1]
+            features["ghost_prox2"] = self.ghost_eval(newPos, g2, newScaredTimes[1])
+            weights["ghost_prox2"] = 0.8
+        #weights = {"food_prox": 1}
+        #features = {"food_prox": nf}
+        ws = lambda key : weights[key] * features[key]
+        expected_value = sum([ws(key) for key in features])
+        #print(nf, " | ", expected_value)
+        return expected_value
 
 def scoreEvaluationFunction(currentGameState):
     """
@@ -231,7 +239,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
         max_depth = (self.depth * num_agents) - 1           # Ply * agents per ply (0 indexed)
         current_depth = 0
         best_action, best_score = None, float('-inf')
-        for action in gameState.getLegalActions(0):#self.index):
+        for action in gameState.getLegalActions(self.index):
             score = self.value(gameState.generateSuccessor(self.index, action), num_agents, current_depth+1, max_depth)
             if score > best_score:
                 best_action, best_score = action, score
@@ -282,59 +290,7 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         Returns the minimax action using self.depth and self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
-        num_agents = gameState.getNumAgents()
-        max_depth = (self.depth * num_agents) - 1           # Ply * agents per ply (0 indexed)
-        current_depth = 0
-        best_action, best_score = None, float('-inf')
-        alpha = float('-inf')
-        beta = float('inf')
-        for action in gameState.getLegalActions(self.index):
-            score = self.value(gameState.generateSuccessor(self.index, action), num_agents, current_depth+1, max_depth, alpha, beta)
-            if score > best_score:
-                best_action, best_score = action, score
-            alpha = max(alpha, score)
-        return best_action
-
-    def max_value(self, state, num_agents, current_depth, max_depth, alpha, beta):
-        val = float('-inf')
-        agentIndex = current_depth % num_agents
-        actions = state.getLegalActions(agentIndex)
-        for a in actions:
-            successor = state.generateSuccessor(agentIndex, a)
-            val = max(val, self.value(successor, num_agents, current_depth+1, max_depth, alpha, beta))
-            if val > beta:        # The current node knows the maximizer above it will never choose a value > beta so it terminates recursion early
-                return val
-            alpha = max(alpha, val)
-        return val
-
-    def min_value(self, state, num_agents, current_depth, max_depth, alpha, beta):
-        val = float('inf')
-        agentIndex = current_depth % num_agents
-        actions = state.getLegalActions(agentIndex)
-        for a in actions:
-            successor = state.generateSuccessor(agentIndex, a)
-            val = min(val, self.value(successor, num_agents, current_depth+1, max_depth, alpha, beta))
-            if val < alpha:        # The current node knows the maximizer above it will never choose a value < alpha so it terminates recursion early
-                return val
-            beta = min(beta, val)
-        return val
-
-    # Returns true if the state is terminal (win or loss) or a leaf node at depth D
-    def terminal(self, state, current_depth, max_depth):
-        if current_depth > max_depth or (state.isWin() or state.isLose()):
-            return True
-        else:
-            return False
-
-    # Input: Game State, number of agents, current tree depth (0 indexed), max tree depth (NOT the ply, which is supplied via command line)
-    # Output: Recursively calculated minimax value for the provided state with alpha-beta pruning
-    def value(self, state, num_agents, current_depth, max_depth, alpha, beta):
-        if self.terminal(state, current_depth, max_depth):
-            return self.evaluationFunction(state)
-        if current_depth % num_agents == 0:                                                  # Is the next agent min or max?
-            return self.max_value(state, num_agents, current_depth, max_depth, alpha, beta)  # Max agent returns max of its childrens' values
-        else:
-            return self.min_value(state, num_agents, current_depth, max_depth, alpha, beta)  # Min agent returns min of its childrens' values
+        util.raiseNotDefined()
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
@@ -349,17 +305,91 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        num_agents = gameState.getNumAgents()
+        max_depth = (self.depth * num_agents) - 1           # Ply * agents per ply (0 indexed)
+        current_depth = 0
+        best_action, best_score = None, float('-inf')
+        for action in gameState.getLegalActions(self.index):
+            score = self.value(gameState.generateSuccessor(self.index, action), num_agents, current_depth+1, max_depth)
+            if score > best_score:
+                best_action, best_score = action, score
+        return best_action
+
+    def max_value(self, state, num_agents, current_depth, max_depth):
+        val = float('-inf')
+        agentIndex = current_depth % num_agents
+        actions = state.getLegalActions(agentIndex)
+        for a in actions:
+            successor = state.generateSuccessor(agentIndex, a)
+            val = max(val, self.value(successor, num_agents, current_depth+1, max_depth))
+        return val
+
+    def exp_value(self, state, num_agents, current_depth, max_depth):
+        val = float('inf')
+        tempSum = 0;
+        tempXiPi = 0;
+        agentIndex = current_depth % num_agents
+        actions = state.getLegalActions(agentIndex)
+        for a in actions:
+            successor = state.generateSuccessor(agentIndex, a)
+            #calcualte the multipication between the random event(Xi)and it's probability (Pi)
+            tempXiPi = (self.value(successor, num_agents, current_depth+1, max_depth))/len(state.getLegalActions(agentIndex))
+            #Find the total of XiPi since E(X)= sum(XiPi)
+            tempSum += tempXiPi;
+        val = tempSum;
+        return val
+
+    # Returns true if the state is terminal (win or loss) or a leaf node at depth D
+    def terminal(self, state, current_depth, max_depth):
+        if current_depth > max_depth or (state.isWin() or state.isLose()):
+            return True
+        else:
+            return False
+
+    # Input: Game State, number of agents, current tree depth (0 indexed), max tree depth (NOT the ply, which is supplied via command line)
+    # Output: Recursively calculated minimax value for the provided state
+    def value(self, state, num_agents, current_depth, max_depth):
+        if self.terminal(state, current_depth, max_depth):
+            return self.evaluationFunction(state)
+        if current_depth % num_agents == 0:                                 # Is the next agent min or max?
+            return self.max_value(state, num_agents, current_depth, max_depth)  # Max agent returns max of its childrens' values
+        else:
+            return self.exp_value(state, num_agents, current_depth, max_depth)  # Min agent returns min of its childrens' values
 
 def betterEvaluationFunction(currentGameState):
     """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
     evaluation function (question 5).
 
-    DESCRIPTION: <write something here so we know what you did>
+    DESCRIPTION: Inspiration came from Quiz 5, Question 3 for the evaluation function. 
+    Since the problem statement allows to utilze project 1 files, we will use the mazeDistance from searchAgents.py.
+    An evaluation function is a weighted linear function of features used to estimate utility of a state
+    Possible Pacman features: ghost proximity, food proximity, food count
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    #Get Pacman's new position
+    pacManPosition = currentGameState.getPacmanPosition()
+    #Define the Distance Measurement
+    distanceMeasure = mazeDistance
+     #Get the latest score
+    currentScore = currentGameState.getScore()
+    #A list of food coordinates
+    foodPositionList = currentGameState.getFood().asList()
+    #Create a list of food distance measurements.
+    closeFoodList = []
+    #If food is still present in the game
+    if foodPositionList:
+        for food in foodPositionList:
+            #get the maze distance for each food item
+            closeFoodList.append(distanceMeasure(pacManPosition, food,currentGameState))
+            #locate the closest food item so far
+            minFoodDistance = min(closeFoodList)
+    else:
+        #assign a random float value to the distance.
+        minFoodDistance = random.uniform(0, 1)
+    #Expand the utility by awarding more points for the min. distance between pacman and food.
+    currentEvaluation = currentScore + (1 / minFoodDistance)
+    return currentEvaluation
 
 # Abbreviation
 better = betterEvaluationFunction
