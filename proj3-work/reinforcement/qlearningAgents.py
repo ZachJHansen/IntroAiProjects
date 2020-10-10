@@ -82,7 +82,7 @@ class QLearningAgent(ReinforcementAgent):
           you should return None.
         """
         "*** YOUR CODE HERE ***"
-        optimalAction = ""
+        optimalAction = None
         legalActions = self.getLegalActions(state)
         maxVal = float('-inf')
         for action in legalActions:
