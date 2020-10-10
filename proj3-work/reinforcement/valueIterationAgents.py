@@ -270,7 +270,7 @@ class PrioritizedSweepingValueIterationAgent(AsynchronousValueIterationAgent):
                         val_list.append(current_value)
                     diff = abs(self.values[predessor] - max(val_list))
                     if diff > self.theta:
-                        priority_queue.push(predessor, diff)
+                        priority_queue.update(predessor, -diff)
 
 
     def predecessors(self, orig_state):
