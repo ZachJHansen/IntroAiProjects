@@ -197,7 +197,48 @@ class AsynchronousValueIterationAgent(ValueIterationAgent):
         ValueIterationAgent.__init__(self, mdp, discount, iterations)
 
     def runValueIteration(self):
-        "*** YOUR CODE HERE ***"
+        # Runs cyclic value iteration: on each iteration, the value of a single state is updated
+        i = 0
+        while i < self.iterations:
+            # Hint: Use the util.Counter class in util.py, which is a dictionary with a default value of zero.
+            # Methods such as totalCount should simplify your code.
+            # However, be careful with argMax: the actual argmax you want may be a key not in the counter!
+            #copy what was in the counter (This is V* in the end.)
+            #for key, value in self.values():
+                #Loop through all the available states in the MDP
+            for state in self.mdp.getStates():
+                if (i >= self.iterations):
+                    break
+                if self.mdp.isTerminal(state) == False:
+                    #Set the current max value to -inf and update towards +inf (Just like in minimax)
+                    maxV = float("-inf")
+                    #Get the available actions for the current state
+                    for action in self.mdp.getPossibleActions(state):
+                        #initialize the value of the current state value to zero.
+                        vS = 0
+                        #Derive the transition info
+                        for transition in self.mdp.getTransitionStatesAndProbs(state, action):
+                            # Get the value of the state we land in (V(s')) and Transition probability to next state (T)
+                            vSPrime, t = transition
+                            # Get the reward for the landing state (R)
+                            r = self.mdp.getReward(state, action, vSPrime)
+                            #update the current value with Bellman eqn.
+                            vS += t* (r + self.discount * self.values[vSPrime])
+                        #Check if you are in a terminal state, if not, optimal would be the max value.
+                    #if self.mdp.isTerminal(state) == False:
+                        # update the max value if the current max is lower than the newfound value.
+                        if vS > maxV:
+                            maxV = vS
+                            # Update V*(s)
+                        self.values[state] = maxV
+                    i += 1
+                    #If you are, just take the value that was just calculated and exit.
+                else:
+                    i += 1
+                    continue
+                        #Update V*(s)
+                    #self.values[state] = vS
+                #i += 1
 
 class PrioritizedSweepingValueIterationAgent(AsynchronousValueIterationAgent):
     """
