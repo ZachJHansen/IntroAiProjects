@@ -237,7 +237,9 @@ class PrioritizedSweepingValueIterationAgent(AsynchronousValueIterationAgent):
 
     def runValueIteration(self):
         "*** YOUR CODE HERE ***"
-        # Initialize Priority Queue
+        pred_dict = {}
+        for s in self.mdp.getStates():
+            pred_dict[s] = self.predecessors(s)
         priority_queue = util.PriorityQueue()
         # For non-terminal states s:
         for s in self.mdp.getStates():
@@ -256,14 +258,12 @@ class PrioritizedSweepingValueIterationAgent(AsynchronousValueIterationAgent):
                 break
             else:
                 state = priority_queue.pop()
-                val = float("-inf")
+                qvals = []
                 for action in self.mdp.getPossibleActions(state):
-                    current_value = self.computeQValueFromValues(state,action)
-                    if current_value > val:
-                        val = current_value
-                self.values[state] = val
+                    qvals.append(self.computeQValueFromValues(state,action))
+                self.values[state] = max(qvals)
 
-                for predessor in self.predecessors(state):
+                for predessor in pred_dict[state]:
                     val_list = []
                     for action in self.mdp.getPossibleActions(predessor):
                         current_value = self.computeQValueFromValues(predessor, action)
@@ -277,13 +277,12 @@ class PrioritizedSweepingValueIterationAgent(AsynchronousValueIterationAgent):
         preds = set()  # Init empty set
         for state_prime in self.mdp.getStates():  # All states are possible predecessors of orig_state
             escape = False
-            if self.mdp.isTerminal(
-                    state_prime) or state_prime == orig_state:  # Except terminal states and orig_state itself
+            if self.mdp.isTerminal(state_prime):#  or state_prime == orig_state:  # Except terminal states and orig_state itself
                 continue
             for action in self.mdp.getPossibleActions(state_prime):
                 for transition in self.mdp.getTransitionStatesAndProbs(state_prime, action):
                     candidate, Pt = transition  # Pt = P(Candidate | state_prime, action)
-                    if candidate == orig_state and Pt > 0:  # Non-zero prob for (state_prime, action, orig_state) sequence
+                    if Pt > 0 and candidate == orig_state:  # Non-zero prob for (state_prime, action, orig_state) sequence
                         preds.add(state_prime)
                         escape = True  # We know state_prime is a predecessor, so break inner loops
                         break
