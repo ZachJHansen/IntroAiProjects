@@ -82,7 +82,15 @@ class QLearningAgent(ReinforcementAgent):
           you should return None.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        optimalAction = ""
+        legalActions = self.getLegalActions(state)
+        maxVal = float('-inf')
+        for action in legalActions:
+          qS = self.q_values[(state, action)]
+          if maxVal < qS:
+            max_val = qS
+            optimalAction = action
+        return optimalAction
 
     def getAction(self, state):
         """
@@ -100,7 +108,6 @@ class QLearningAgent(ReinforcementAgent):
         action = None
         "*** YOUR CODE HERE ***"
         util.raiseNotDefined()
-
         return action
 
     def update(self, state, action, nextState, reward):
