@@ -200,22 +200,32 @@ class ApproximateQAgent(PacmanQAgent):
           where * is the dotProduct operator
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        totalValue = 0 # inital totalValue of QValue
+        list_of_features = self.featExtractor.getFeatures(state, action) # list of the features given
+        for i in list_of_features:
+            if self.weights[i] == 0 or list_of_features[i] == 0: # if either value is 0 no reason to calculate
+                continue
+            totalValue += self.weights[i] * list_of_features[i] # Q-value is the sum of weights * its corresponding feature
+        return totalValue # finally return the total Qvalue for the given state, action
 
     def update(self, state, action, nextState, reward):
         """
            Should update your weights based on transition
         """
-        diff = (reward + self.discount * self.computeValueFromQValues(nextState)) - self.getQValue(state, action)
-        self.weights[i] = self.weights[i] + self.alpha * diff * 1#fi
+        diff = (reward + self.discount * self.computeValueFromQValues(nextState)) - self.getQValue(state, action) # calculate the diffence with given formula from the question
+        list_of_features = self.featExtractor.getFeatures(state, action) # get the list of features which is using the Counter class, similar to a dictionary
+        for i in list_of_features: # iterate through the list of features
+            self.weights[i] = self.weights[i] + self.alpha * diff * list_of_features[i] # update the weights with the fomula given in q10
 
     def final(self, state):
         "Called at the end of each game."
         # call the super-class final method
         PacmanQAgent.final(self, state)
 
+
         # did we finish training?
         if self.episodesSoFar == self.numTraining:
             # you might want to print your weights here for debugging
             "*** YOUR CODE HERE ***"
-            pass
+            for i in self.getWeights():
+                print("I: {} --> weight: {}".format(i, self.weights[i]))
